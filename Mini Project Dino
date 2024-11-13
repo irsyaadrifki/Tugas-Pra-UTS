@@ -1,0 +1,116 @@
+#include <LiquidCrystal_I2C.h>
+#include <Arduino.h>
+#include <wire.h>
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+int pos = 0;
+int y = 1;
+const int buzzerPin = 2; // Pin buzzer
+const int buttonPin = 13; // Pin tombol
+bool buttonPressed = false;
+bool gameOver = false;
+int score = 0;
+bool isJumping = false;
+unsigned long jumpStartTime = 0;
+const unsigned long jumpDuration = 500; // Durasi lompatan dalam milidetik
+
+byte dino[8] = {
+  0b00011,
+  0b00011,
+  0b00010,
+  0b00010,
+  0b01110,
+  0b01110,
+  0b01110,
+  0b01010,
+};
+
+byte kaktus[8] = {
+  0b00100,
+  0b01110,
+  0b11110,
+  0b01111,
+  0b01110,
+  0b11110,
+  0b01111,
+  0b01110,
+};
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  lcd.createChar(0, dino);
+  lcd.createChar(1, kaktus);
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW); // Pastikan buzzer mati saat awal
+}
+
+void loop() {
+  lcd.clear();
+
+  if (gameOver && digitalRead(buttonPin) == LOW) {
+    gameOver = false;
+    score = 0;
+    pos = 0;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    int posObstacle = 3 + (i * 3);
+
+    if (posObstacle == pos && y == 1) {
+      gameOver = true;
+      break;
+    }
+
+    lcd.setCursor(posObstacle, 1);
+    lcd.write((byte)1);
+  }
+
+  if (gameOver) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Game Over!");
+    lcd.setCursor(0, 1);
+    lcd.print("Score : ");
+    lcd.setCursor(8, 1);
+    lcd.print(score);
+    delay(500);
+    return;
+  }
+
+  // Logika lompatan dan kontrol buzzer
+  if (digitalRead(buttonPin) == LOW && !isJumping) {
+    isJumping = true;
+    jumpStartTime = millis();
+    y = 0; // Dino naik ke atas (melompat)
+    digitalWrite(buzzerPin, HIGH); // Nyalakan buzzer saat lompat
+  }
+
+  if (isJumping) {
+    if (millis() - jumpStartTime > jumpDuration) {
+      isJumping = false;
+      y = 1; // Dino kembali ke tanah setelah durasi lompatan
+      digitalWrite(buzzerPin, LOW); // Matikan buzzer setelah lompatan selesai
+    }
+  }
+
+  lcd.setCursor(14, 0);
+  lcd.print(score);
+
+  // Tampilkan dino di posisi tertentu
+  lcd.setCursor(pos, y);
+  lcd.write((byte)0);
+
+  // Gerakkan dino ke kanan
+  pos++;
+  if (pos > 15) {
+    pos = 0;
+  }
+
+  score++;
+
+  // Delay untuk mengontrol kecepatan animasi
+  delay(500);
+}
